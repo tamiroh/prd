@@ -2,6 +2,7 @@ module main
 
 import std/os/env
 import period
+import package-lock
 import std/os/readline
 import std/os/file
 import std/os/dir
@@ -17,6 +18,7 @@ Find the shortest repeating prefix of each UTF-8 line.
   --             End options
 
 Read standard input when FILE is omitted or is -.
+Files containing npm lockfile JSON are printed unchanged, ignoring -l and -s.
 Empty lines produce empty output (0 with --length)."
 
 // readline removes LF but retains CR, including at the end of a final line.
@@ -44,7 +46,10 @@ fun process-file-lines(lines : list<string>, length-only : bool, strict : bool) 
 fun process(filename : string, length-only : bool, strict : bool) : io ()
   if filename == "-" then process-stdin(length-only, strict)
   elif filename.path.is-directory then throw("input is a directory: " ++ filename)
-  else process-file-lines(read-text-file(filename.path).split("\n"), length-only, strict)
+  else
+    val content = read-text-file(filename.path)
+    if is-package-lock(content) then print(content)
+    else process-file-lines(content.split("\n"), length-only, strict)
 
 struct options(
   length-only : bool = False,

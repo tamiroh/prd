@@ -4,7 +4,7 @@ PREFIX ?= /usr/local
 .PHONY: all
 all: prd
 
-prd: Makefile main.kk period.kk
+prd: Makefile main.kk period.kk json.kk package-lock.kk
 	$(KOKA) -O2 --output=prd main.kk
 
 .PHONY: install

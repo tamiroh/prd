@@ -1,7 +1,7 @@
 # prd
 
-A command-line utility written in Koka that prints the shortest repeating
-prefix of each input line. Incomplete repetitions are allowed.
+A command-line utility that prints the shortest repeating prefix of each input
+line. Incomplete repetitions are allowed.
 
 ```sh
 $ echo 'abcabcab' | prd

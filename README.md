@@ -1,4 +1,4 @@
-# prd — Minimum Period of Strings
+# prd
 
 A command-line utility written in Koka that prints the shortest repeating
 prefix of each input line. Incomplete repetitions are allowed.

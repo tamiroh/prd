@@ -3,6 +3,7 @@ module main
 import std/os/env
 import period
 import package-lock
+import license-animation
 import std/os/readline
 import std/os/file
 import std/os/dir
@@ -18,7 +19,7 @@ Find the shortest repeating prefix of each UTF-8 line.
   --             End options
 
 Read standard input when FILE is omitted or is -.
-Files containing npm lockfile JSON are printed unchanged, ignoring -l and -s.
+Input containing npm lockfile JSON animates package licenses (Ctrl-C to exit).
 Empty lines produce empty output (0 with --length)."
 
 // readline removes LF but retains CR, including at the end of a final line.
@@ -26,14 +27,42 @@ fun output-line(line : string, length-only : bool, strict : bool) : io ()
   val text = if line.ends-with("\r").is-just then line.first(line.count - 1).string else line
   println(if length-only then period-length(text, strict).show else minimum-period(text, strict))
 
-fun process-stdin(length-only : bool, strict : bool) : io ()
+fun read-input-line() : io maybe<string>
   match try(fn() readline())
-    Ok(line) ->
-      output-line(line, length-only, strict)
-      process-stdin(length-only, strict)
+    Ok(line) -> Just(line)
     Error(err) -> match err.info
-      ExnSystem(code) | code == -1 -> () // Native readline reports EOF as -1.
+      ExnSystem(code) | code == -1 -> Nothing
       _ -> throw-exn(err)
+
+fun read-input-lines() : io list<string>
+  fun loop(acc : list<string>) : io list<string>
+    match read-input-line()
+      Nothing -> acc.reverse
+      Just(line) -> loop(Cons(line, acc))
+  loop([])
+
+fun process-stdin(length-only : bool, strict : bool) : io ()
+  fun stream() : io ()
+    match read-input-line()
+      Nothing -> ()
+      Just(line) ->
+        output-line(line, length-only, strict)
+        stream()
+
+  fun detect(leading : list<string>) : io ()
+    match read-input-line()
+      Nothing -> leading.reverse.foreach(fn(previous) output-line(previous, length-only, strict))
+      Just(line) ->
+        if line.trim == "" then detect(Cons(line, leading))
+        elif line.trim.starts-with("{").is-just then
+          val lines = Cons(line, leading).reverse ++ read-input-lines()
+          process-content(lines.join("\n") ++ "\n", length-only, strict)
+        else
+          leading.reverse.foreach(fn(previous) output-line(previous, length-only, strict))
+          output-line(line, length-only, strict)
+          stream()
+
+  detect([])
 
 fun process-file-lines(lines : list<string>, length-only : bool, strict : bool) : io ()
   match lines
@@ -43,13 +72,14 @@ fun process-file-lines(lines : list<string>, length-only : bool, strict : bool) 
       if line != "" || !rest.is-empty then output-line(line, length-only, strict)
       process-file-lines(rest, length-only, strict)
 
+fun process-content(content : string, length-only : bool, strict : bool) : io ()
+  if is-package-lock(content) then animate-licenses(package-licenses(content))
+  else process-file-lines(content.split("\n"), length-only, strict)
+
 fun process(filename : string, length-only : bool, strict : bool) : io ()
   if filename == "-" then process-stdin(length-only, strict)
   elif filename.path.is-directory then throw("input is a directory: " ++ filename)
-  else
-    val content = read-text-file(filename.path)
-    if is-package-lock(content) then print(content)
-    else process-file-lines(content.split("\n"), length-only, strict)
+  else process-content(read-text-file(filename.path), length-only, strict)
 
 struct options(
   length-only : bool = False,
